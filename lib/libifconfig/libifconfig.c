@@ -337,6 +337,17 @@ fail:
 }
 
 int
+ifconfig_set_fib(ifconfig_handle_t *h, const char *name, int fib)
+{
+	struct ifreq ifr = { 0 };
+
+	(void)strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+	ifr.ifr_fib = fib;
+
+	return (ifconfig_ioctlwrap(h, AF_LOCAL, SIOCSIFFIB, &ifr));
+}
+
+int
 ifconfig_get_fib(ifconfig_handle_t *h, const char *name, int *fib)
 {
 	struct ifreq ifr;
