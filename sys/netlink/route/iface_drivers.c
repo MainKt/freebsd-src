@@ -82,7 +82,7 @@ _nl_modify_ifp_generic(struct ifnet *ifp, struct nl_parsed_link *lattrs,
 		}
 	}
 
-	if (lattrs->ifi_change & IFF_UP) {
+	if ((lattrs->ifi_change & IFF_UP) != 0 || lattrs->ifi_change == 0) {
 		/* Request to up or down the interface */
 		if (lattrs->ifi_flags & IFF_UP)
 			if_up(ifp);
@@ -100,7 +100,8 @@ _nl_modify_ifp_generic(struct ifnet *ifp, struct nl_parsed_link *lattrs,
 		}
 	}
 
-	if (lattrs->ifi_change & IFF_PROMISC) {
+	if ((lattrs->ifi_change & IFF_PROMISC) != 0 ||
+	    lattrs->ifi_change == 0) {
 		error = ifpromisc(ifp, lattrs->ifi_flags & IFF_PROMISC);
 		if (error != 0) {
 			nlmsg_report_err_msg(npt, "unable to set promisc");
