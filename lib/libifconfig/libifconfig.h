@@ -418,3 +418,26 @@ int ifconfig_add_inet(ifconfig_handle_t *h, const char *ifname,
  */
 int ifconfig_del_inet(ifconfig_handle_t *h, const char *ifname,
     const struct ifconfig_inet_addr *addr);
+
+/** Adds an IPv6 address to an interface
+ * @param h	    An open ifconfig state object
+ * @param ifname    The interface name
+ * @param addr	    The IPv6 address to be added.
+ *		    For non-P2P addresses,
+ *		    either only the dst field is set
+ *		    or both sin6 and dst fields are set to the same address.
+ * @return	    0 on success, nonzero on failure.
+ *		    On failure, the error info on the handle is set.
+ */
+int ifconfig_add_inet6(ifconfig_handle_t *h, const char *ifname,
+    const struct ifconfig_inet6_addr *addr);
+
+/** Delete an IPv6 address on an interface
+ * @param h	    An open ifconfig state object
+ * @param ifname    The interface name
+ * @param addr	    The IPv6 address to be deleted
+ * @return	    0 on success, nonzero on failure.
+ *		    On failure, the error info on the handle is set.
+ */
+int ifconfig_del_inet6(ifconfig_handle_t *h, const char *ifname,
+    const struct ifconfig_inet6_addr *addr);

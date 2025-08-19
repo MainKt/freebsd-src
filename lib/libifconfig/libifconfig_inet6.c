@@ -31,6 +31,10 @@
 
 #include <net/if.h>
 #include <netinet/in.h>
+#include <netlink/netlink_snl.h>
+#include <netlink/netlink_snl_route.h>
+#include <netlink/route/common.h>
+#include <netlink/route/ifaddrs.h>
 
 #include <errno.h>
 #include <ifaddrs.h>
@@ -40,6 +44,8 @@
 #include "libifconfig.h"
 #include "libifconfig_internal.h"
 
+static int ifconfig_inet6_exec_nl(ifconfig_handle_t *h, int action,
+    const char *ifname, const struct ifconfig_inet6_addr *addr);
 
 static int
 inet6_prefixlen(struct in6_addr *addr)
@@ -100,4 +106,90 @@ ifconfig_inet6_get_addrinfo(ifconfig_handle_t *h,
 	}
 
 	return (0);
+}
+
+static int
+ifconfig_inet6_exec_nl(ifconfig_handle_t *h, int action, const char *ifname,
+    const struct ifconfig_inet6_addr *addr)
+{
+	int ret = 0, nested_offset = 0;
+	struct snl_state ss;
+	struct snl_writer nw = { 0 };
+	struct nlmsghdr *hdr;
+	struct ifaddrmsg *ifahdr;
+	struct ifa_cacheinfo ci = { 0 };
+	struct snl_errmsg_data e = { 0 };
+
+	assert(addr != NULL);
+
+	if (!snl_init(&ss, NETLINK_ROUTE)) {
+		ifconfig_error(h, NETLINK, ENOTSUP);
+		return (-1);
+	}
+
+	snl_init_writer(&ss, &nw);
+	hdr = snl_create_msg_request(&nw, action);
+	ifahdr = snl_reserve_msg_object(&nw, struct ifaddrmsg);
+
+	ifahdr->ifa_family = AF_INET6;
+	ifahdr->ifa_prefixlen = addr->prefixlen;
+
+	ifahdr->ifa_index = if_nametoindex(ifname);
+	if (ifahdr->ifa_index == 0) {
+		ifconfig_error(h, OTHER, EADDRNOTAVAIL);
+		ret = -1;
+		goto out;
+	}
+
+	if (addr->sin6 != NULL)
+		snl_add_msg_attr_ip6(&nw, IFA_LOCAL, &addr->sin6->sin6_addr);
+	if (addr->dstin6 != NULL)
+		snl_add_msg_attr_ip6(&nw, IFA_ADDRESS,
+		    &addr->dstin6->sin6_addr);
+
+	ci.ifa_prefered = addr->lifetime.ia6t_pltime;
+	ci.ifa_valid = addr->lifetime.ia6t_vltime;
+	snl_add_msg_attr(&nw, IFA_CACHEINFO, sizeof(ci), &ci);
+
+	nested_offset = snl_add_msg_attr_nested(&nw, IFA_FREEBSD);
+	snl_add_msg_attr_u32(&nw, IFAF_FLAGS, addr->flags);
+	if (addr->vhid != 0)
+		snl_add_msg_attr_u32(&nw, IFAF_VHID, addr->vhid);
+	snl_end_attr_nested(&nw, nested_offset);
+
+	if ((hdr = snl_finalize_msg(&nw)) == NULL) {
+		ifconfig_error(h, NETLINK, ENOMEM);
+		ret = -1;
+		goto out;
+	}
+
+	if (!snl_send_message(&ss, hdr)) {
+		ifconfig_error(h, NETLINK, EIO);
+		ret = -1;
+		goto out;
+	}
+
+	if (!snl_read_reply_code(&ss, hdr->nlmsg_seq, &e)) {
+		ifconfig_error(h, NETLINK, e.error);
+		ret = -1;
+		goto out;
+	}
+
+out:
+	snl_free(&ss);
+	return (ret);
+}
+
+int
+ifconfig_add_inet6(ifconfig_handle_t *h, const char *ifname,
+    const struct ifconfig_inet6_addr *addr)
+{
+	return (ifconfig_inet6_exec_nl(h, NL_RTM_NEWADDR, ifname, addr));
+}
+
+int
+ifconfig_del_inet6(ifconfig_handle_t *h, const char *ifname,
+    const struct ifconfig_inet6_addr *addr)
+{
+	return (ifconfig_inet6_exec_nl(h, NL_RTM_DELADDR, ifname, addr));
 }
