@@ -451,3 +451,13 @@ int ifconfig_del_inet6(ifconfig_handle_t *h, const char *ifname,
  */
 int ifconfig_get_mac(ifconfig_handle_t *h, const char *ifname,
     struct ether_addr *addr);
+
+/** Set MAC address on an interface
+ * @param h	    An open ifconfig state object
+ * @param ifname    The interface name
+ * @param addr	    The MAC address
+ * @return	    0 on success, nonzero on failure.
+ *		    On failure, the error info on the handle is set.
+ */
+int ifconfig_set_mac(ifconfig_handle_t *h, const char *ifname,
+    const struct ether_addr *addr);

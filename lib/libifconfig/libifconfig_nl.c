@@ -158,3 +158,61 @@ out:
 	snl_free(&ss);
 	return (ret);
 }
+
+int
+ifconfig_set_mac(ifconfig_handle_t *h, const char *ifname,
+    const struct ether_addr *addr)
+{
+	int ret = 0;
+	struct snl_state ss;
+	struct snl_writer nw = { 0 };
+	struct nlmsghdr *hdr;
+	struct ifinfomsg *ifi;
+	struct snl_errmsg_data e = { 0 };
+
+	assert(addr != NULL);
+
+	if (!snl_init(&ss, NETLINK_ROUTE)) {
+		ifconfig_error(h, NETLINK, ENOTSUP);
+		return (-1);
+	}
+
+	snl_init_writer(&ss, &nw);
+	hdr = snl_create_msg_request(&nw, RTM_NEWLINK);
+	ifi = snl_reserve_msg_object(&nw, struct ifinfomsg);
+
+	ifi->ifi_type = ARPHRD_ETHER;
+	ifi->ifi_family = AF_UNSPEC;
+
+	ifi->ifi_index = if_nametoindex(ifname);
+	if (ifi->ifi_index == 0) {
+		ifconfig_error(h, OTHER, EADDRNOTAVAIL);
+		ret = -1;
+		goto out;
+	}
+
+	snl_add_msg_attr_string(&nw, IFLA_IFNAME, ifname);
+	snl_add_msg_attr(&nw, IFLA_ADDRESS, ETHER_ADDR_LEN, addr);
+
+	if ((hdr = snl_finalize_msg(&nw)) == NULL) {
+		ifconfig_error(h, NETLINK, ENOMEM);
+		ret = -1;
+		goto out;
+	}
+
+	if (!snl_send_message(&ss, hdr)) {
+		ifconfig_error(h, NETLINK, EIO);
+		ret = -1;
+		goto out;
+	}
+
+	if (!snl_read_reply_code(&ss, hdr->nlmsg_seq, &e)) {
+		ifconfig_error(h, NETLINK, e.error);
+		ret = -1;
+		goto out;
+	}
+
+out:
+	snl_free(&ss);
+	return (ret);
+}
