@@ -398,3 +398,23 @@ int ifconfig_if_up(ifconfig_handle_t *h, const char *ifname);
  *		    On failure, the error info on the handle is set.
  */
 int ifconfig_if_down(ifconfig_handle_t *h, const char *ifname);
+
+/** Adds an IPv4 address to an interface
+ * @param h	    An open ifconfig state object
+ * @param ifname    The interface name
+ * @param addr	    The IPv4 address to be added
+ * @return	    0 on success, nonzero on failure.
+ *		    On failure, the error info on the handle is set.
+ */
+int ifconfig_add_inet(ifconfig_handle_t *h, const char *ifname,
+    const struct ifconfig_inet_addr *addr);
+
+/** Delete an IPv4 address on an interface
+ * @param h	    An open ifconfig state object
+ * @param ifname    The interface name
+ * @param addr	    The IPv4 address to be deleted
+ * @return	    0 on success, nonzero on failure.
+ *		    On failure, the error info on the handle is set.
+ */
+int ifconfig_del_inet(ifconfig_handle_t *h, const char *ifname,
+    const struct ifconfig_inet_addr *addr);
