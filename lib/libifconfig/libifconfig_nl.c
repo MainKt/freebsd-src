@@ -26,10 +26,15 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <net/if.h>
+#include <net/if_arp.h>
 #include <netlink/netlink.h>
 #include <netlink/netlink_snl.h>
+#include <netlink/netlink_snl_route_parsers.h>
 #include <netlink/route/common.h>
 #include <netlink/route/interface.h>
+
+#include <errno.h>
 
 #include "libifconfig.h"
 #include "libifconfig_internal.h"
@@ -95,4 +100,61 @@ int
 ifconfig_if_down(ifconfig_handle_t *h, const char *ifname)
 {
 	return (ifconfig_modify_flags(h, ifname, ~IFF_UP, IFF_UP));
+}
+
+int
+ifconfig_get_mac(ifconfig_handle_t *h, const char *ifname,
+    struct ether_addr *addr)
+{
+	int ret = 0;
+	uint32_t nlmsg_seq = 0;
+	struct snl_state ss;
+	struct snl_writer nw = { 0 };
+	struct nlmsghdr *hdr;
+	struct snl_parsed_link link = { 0 };
+	struct snl_errmsg_data e = { 0 };
+
+	assert(addr != NULL);
+
+	if (!snl_init(&ss, NETLINK_ROUTE)) {
+		ifconfig_error(h, NETLINK, ENOTSUP);
+		return (-1);
+	}
+
+	snl_init_writer(&ss, &nw);
+	hdr = snl_create_msg_request(&nw, RTM_GETLINK);
+	(void)snl_reserve_msg_object(&nw, struct ifinfomsg);
+
+	snl_add_msg_attr_string(&nw, IFLA_IFNAME, ifname);
+
+	if ((hdr = snl_finalize_msg(&nw)) == NULL) {
+		ifconfig_error(h, NETLINK, ENOMEM);
+		ret = -1;
+		goto out;
+	}
+
+	if (!snl_send_message(&ss, hdr)) {
+		ifconfig_error(h, NETLINK, EIO);
+		ret = -1;
+		goto out;
+	}
+
+	nlmsg_seq = hdr->nlmsg_seq;
+	while ((hdr = snl_read_reply_multi(&ss, nlmsg_seq, &e)) != NULL) {
+		if (!snl_parse_nlmsg(&ss, hdr, &snl_rtm_link_parser, &link))
+			continue;
+
+		if (link.ifla_address != NULL &&
+		    NLA_DATA_LEN(link.ifla_address) == ETHER_ADDR_LEN) {
+			memcpy(addr, NLA_DATA(link.ifla_address),
+			    ETHER_ADDR_LEN);
+			goto out;
+		}
+	}
+	ifconfig_error(h, NETLINK, ENOENT);
+	ret = -1;
+
+out:
+	snl_free(&ss);
+	return (ret);
 }
