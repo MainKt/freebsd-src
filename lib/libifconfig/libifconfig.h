@@ -382,3 +382,19 @@ int ifconfig_set_vlantag(ifconfig_handle_t *h, const char *name,
  * 		length of *lenp * IFNAMSIZ bytes.
  */
 int ifconfig_list_cloners(ifconfig_handle_t *h, char **bufp, size_t *lenp);
+
+/** Brings the interface up
+ * @param h	    An open ifconfig state object
+ * @param ifname    The interface name
+ * @return	    0 on success, nonzero on failure.
+ *		    On failure, the error info on the handle is set.
+ */
+int ifconfig_if_up(ifconfig_handle_t *h, const char *ifname);
+
+/** Brings the interface down
+ * @param h	    An open ifconfig state object
+ * @param ifname    The interface name
+ * @return	    0 on success, nonzero on failure.
+ *		    On failure, the error info on the handle is set.
+ */
+int ifconfig_if_down(ifconfig_handle_t *h, const char *ifname);
